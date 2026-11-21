@@ -9,7 +9,7 @@ Built for hackathons and real-world daily use, it prioritizes reliable data pers
 ## Tech Stack
 
 - **Framework**: Next.js 14 (App Router, React 18, TypeScript)
-- **Database**: SQLite with Prisma ORM (`prisma/dev.db`)
+- **Database**: PostgreSQL with Prisma ORM (Prisma Postgres on Vercel); local development can use a separate PostgreSQL database
 - **Styling & Accessibility**: Tailwind CSS with custom elderly-friendly Large Text mode and visible focus indicators
 - **Icons**: Lucide React
 - **Audio Alerts**: Web Audio API melodic reminder chime (zero external audio file dependencies)
@@ -30,11 +30,13 @@ pnpm install
 # or: npm install
 ```
 
-### 3. Database Setup & Migrations
-The app uses a local SQLite database (`prisma/dev.db`). Initialize the database and generate the Prisma client:
+### 3. Database Setup
+The production schema uses PostgreSQL. Set `DATABASE_URL` to a PostgreSQL connection string before initializing the schema:
 ```bash
-npx prisma db push
+pnpm db:push
+pnpm db:generate
 ```
+On Vercel, the Prisma Postgres integration provides `DATABASE_URL` (direct connection) and `DATABASE_URL_POOLED` (pooled application connection). The Vercel build script runs `prisma db push` against the direct `DATABASE_URL` before building. The Prisma client uses `DATABASE_URL_POOLED` for application traffic when available.
 
 ### 4. Running the Development Server
 ```bash
@@ -134,3 +136,13 @@ pnpm start
 ## Medical Disclaimer
 
 > **MediTrack helps track medication schedules. It does not provide medical advice. Follow your prescription and consult a healthcare professional about missed doses or medication changes.**
+
+
+## Vercel deployment notes
+
+- Required server environment variables: `DATABASE_URL`, `DATABASE_URL_POOLED`, and `GEMINI_API_KEY`.
+- `DATABASE_URL` is the direct Prisma Postgres connection used by Prisma CLI/schema synchronization.
+- `DATABASE_URL_POOLED` is used by the app at runtime to avoid opening too many direct database connections.
+- `GEMINI_API_KEY` must remain server-side and must never use a `NEXT_PUBLIC_` prefix.
+- The `vercel-build` script synchronizes the Prisma schema with `prisma db push` and then runs `next build`.
+- This MVP currently has no authentication or per-user data isolation. Do not store real medication or health information in a publicly accessible deployment; use demo data until access control is implemented.
