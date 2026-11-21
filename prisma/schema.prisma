@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Medication {
+  id                String            @id @default(cuid())
+  name              String
+  dosage            String
+  instructions      String?
+  scheduleType      String            @default("DAILY") // "DAILY" or "SPECIFIC_DAYS"
+  daysOfWeek        String?           // Comma-separated days, e.g. "1,2,3,4,5" (0=Sun, 1=Mon, ..., 6=Sat)
+  reminderTimes     String            // JSON string array e.g. '["08:00","20:00"]'
+  startDate         String            // YYYY-MM-DD
+  endDate           String?           // YYYY-MM-DD or null
+  stockTracking     Boolean           @default(false)
+  stock             Int?              // Remaining scheduled doses
+  lowStockThreshold Int?              @default(5)
+  archived          Boolean           @default(false)
+  isDemo            Boolean           @default(false)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  doses             ScheduledDose[]
+  stockAdjustments  StockAdjustment[]
+}
+
+model ScheduledDose {
+  id                   String      @id @default(cuid())
+  medicationId         String
+  medication           Medication  @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+  scheduledTime        DateTime    // Exact timestamp
+  scheduledDate        String      // YYYY-MM-DD in app timezone
+  reminderTime         String      // "08:00"
+  medNameSnapshot      String
+  dosageSnapshot       String
+  instructionsSnapshot String?
+  status               String      @default("SCHEDULED") // "SCHEDULED", "TAKEN", "SKIPPED"
+  takenAt              DateTime?
+  snoozedUntil         DateTime?
+  lastNotifiedAt       DateTime?
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+
+  stockAdjustments     StockAdjustment[]
+
+  @@unique([medicationId, scheduledTime])
+  @@index([scheduledDate])
+  @@index([status])
+}
+
+model StockAdjustment {
+  id           String         @id @default(cuid())
+  medicationId String
+  medication   Medication     @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+  doseId       String?
+  dose         ScheduledDose? @relation(fields: [doseId], references: [id], onDelete: SetNull)
+  amount       Int            // e.g. -1, +1, +30
+  balanceAfter Int
+  reason       String         // "DOSE_TAKEN", "UNDO_TAKEN", "REFILL", "INITIAL_SET", "MANUAL_EDIT"
+  createdAt    DateTime       @default(now())
+}
+
+model AppSettings {
+  id            String   @id @default("default")
+  timezone      String   @default("UTC")
+  reminderSound Boolean  @default(true)
+  largeText     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
